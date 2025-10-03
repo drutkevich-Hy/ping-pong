@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LED Screen Pong</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #000;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+
+      canvas {
+        display: block;
+        background: #000;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+
+      // Display-Spezifikationen
+      const TOTAL_WIDTH = 10368;
+      const TOTAL_HEIGHT = 1536;
+      const LEFT_SCREEN_WIDTH = 3968;
+      const RIGHT_SCREEN_WIDTH = 6400;
+
+      canvas.width = TOTAL_WIDTH;
+      canvas.height = TOTAL_HEIGHT;
+
+      // Spielvariablen
+      const PADDLE_WIDTH = 30;
+      const PADDLE_HEIGHT = 200;
+      const BALL_SIZE = 30;
+      const PADDLE_SPEED = 15;
+      const BALL_SPEED = 8;
+
+      let player1Y = TOTAL_HEIGHT / 2 - PADDLE_HEIGHT / 2;
+      let player2Y = TOTAL_HEIGHT / 2 - PADDLE_HEIGHT / 2;
+      let ballX = LEFT_SCREEN_WIDTH / 2;
+      let ballY = TOTAL_HEIGHT / 2;
+      let ballVelX = BALL_SPEED;
+      let ballVelY = BALL_SPEED;
+      let score1 = 0;
+      let score2 = 0;
+
+      // Tastatureingaben
+      const keys = {};
+      document.addEventListener("keydown", (e) => (keys[e.key] = true));
+      document.addEventListener("keyup", (e) => (keys[e.key] = false));
+
+      function resetBall() {
+        ballX = LEFT_SCREEN_WIDTH / 2;
+        ballY = TOTAL_HEIGHT / 2;
+        ballVelX = (Math.random() > 0.5 ? 1 : -1) * BALL_SPEED;
+        ballVelY = (Math.random() * 2 - 1) * BALL_SPEED;
+      }
+
+      function update() {
+        // Spieler 1 (W/S)
+        if (keys["w"] && player1Y > 0) player1Y -= PADDLE_SPEED;
+        if (keys["s"] && player1Y < TOTAL_HEIGHT - PADDLE_HEIGHT)
+          player1Y += PADDLE_SPEED;
+
+        // Spieler 2 (Pfeiltasten)
+        if (keys["ArrowUp"] && player2Y > 0) player2Y -= PADDLE_SPEED;
+        if (keys["ArrowDown"] && player2Y < TOTAL_HEIGHT - PADDLE_HEIGHT)
+          player2Y += PADDLE_SPEED;
+
+        // Ball bewegen
+        ballX += ballVelX;
+        ballY += ballVelY;
+
+        // Wand-Kollision (oben/unten)
+        if (ballY <= 0 || ballY >= TOTAL_HEIGHT - BALL_SIZE) {
+          ballVelY *= -1;
+        }
+
+        // Paddle-Kollision
+        // Spieler 1 (links)
+        if (
+          ballX <= 100 + PADDLE_WIDTH &&
+          ballY + BALL_SIZE >= player1Y &&
+          ballY <= player1Y + PADDLE_HEIGHT
+        ) {
+          ballVelX = Math.abs(ballVelX);
+          const hitPos = (ballY - player1Y) / PADDLE_HEIGHT - 0.5;
+          ballVelY = hitPos * BALL_SPEED * 2;
+        }
+
+        // Spieler 2 (rechts)
+        if (
+          ballX >= LEFT_SCREEN_WIDTH - 100 - PADDLE_WIDTH - BALL_SIZE &&
+          ballY + BALL_SIZE >= player2Y &&
+          ballY <= player2Y + PADDLE_HEIGHT
+        ) {
+          ballVelX = -Math.abs(ballVelX);
+          const hitPos = (ballY - player2Y) / PADDLE_HEIGHT - 0.5;
+          ballVelY = hitPos * BALL_SPEED * 2;
+        }
+
+        // Scoring
+        if (ballX < 0) {
+          score2++;
+          resetBall();
+        }
+        if (ballX > LEFT_SCREEN_WIDTH) {
+          score1++;
+          resetBall();
+        }
+      }
+
+      function draw() {
+        // Hintergrund
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, TOTAL_WIDTH, TOTAL_HEIGHT);
+
+        // Trennlinie zwischen Screens
+        ctx.strokeStyle = "#333";
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(LEFT_SCREEN_WIDTH, 0);
+        ctx.lineTo(LEFT_SCREEN_WIDTH, TOTAL_HEIGHT);
+        ctx.stroke();
+
+        // Mittellinie im Spielfeld
+        ctx.strokeStyle = "#444";
+        ctx.lineWidth = 5;
+        ctx.setLineDash([40, 40]);
+        ctx.beginPath();
+        ctx.moveTo(LEFT_SCREEN_WIDTH / 2, 0);
+        ctx.lineTo(LEFT_SCREEN_WIDTH / 2, TOTAL_HEIGHT);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Spieler 1 Paddle (links)
+        ctx.fillStyle = "#00ff00";
+        ctx.fillRect(100, player1Y, PADDLE_WIDTH, PADDLE_HEIGHT);
+
+        // Spieler 2 Paddle (rechts)
+        ctx.fillStyle = "#0099ff";
+        ctx.fillRect(
+          LEFT_SCREEN_WIDTH - 100 - PADDLE_WIDTH,
+          player2Y,
+          PADDLE_WIDTH,
+          PADDLE_HEIGHT
+        );
+
+        // Ball
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(ballX, ballY, BALL_SIZE, BALL_SIZE);
+
+        // Score auf rechtem Screen
+        const scoreX = LEFT_SCREEN_WIDTH + RIGHT_SCREEN_WIDTH / 2;
+        const scoreY = TOTAL_HEIGHT / 2;
+
+        ctx.font = "bold 600px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        // Spieler 1 Score (oben)
+        ctx.fillStyle = "#00ff00";
+        ctx.fillText(score1, scoreX, scoreY - 300);
+
+        // Spieler 2 Score (unten)
+        ctx.fillStyle = "#0099ff";
+        ctx.fillText(score2, scoreX, scoreY + 300);
+
+        // "vs" Text
+        ctx.font = "bold 200px Arial";
+        ctx.fillStyle = "#fff";
+        ctx.fillText("VS", scoreX, scoreY);
+      }
+
+      function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+      }
+
+      // Spiel starten
+      resetBall();
+      gameLoop();
+
+      // Fullscreen bei Klick
+      canvas.addEventListener("click", () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen();
+        }
+      });
+    </script>
+  </body>
+</html>
