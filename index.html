@@ -18,6 +18,7 @@
         justify-content: center;
         align-items: center;
         height: 100vh;
+        width: 100vw;
       }
 
       #canvasContainer {
@@ -34,9 +35,29 @@
         image-rendering: pixelated;
         image-rendering: crisp-edges;
       }
+
+      #fullscreenBtn {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 30px;
+        background: #ff0000;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        font-size: 18px;
+        cursor: pointer;
+        z-index: 1000;
+        display: none;
+      }
+
+      #fullscreenBtn:hover {
+        background: #cc0000;
+      }
     </style>
   </head>
   <body>
+    <button id="fullscreenBtn">Fullscreen (F11)</button>
     <div id="canvasContainer">
       <canvas id="gameCanvas"></canvas>
     </div>
@@ -44,24 +65,32 @@
     <script>
       const canvas = document.getElementById("gameCanvas");
       const ctx = canvas.getContext("2d");
+      const fullscreenBtn = document.getElementById("fullscreenBtn");
 
       // Display-Spezifikationen
       const TOTAL_WIDTH = 10368;
       const TOTAL_HEIGHT = 1536;
       const LEFT_SCREEN_WIDTH = 3968;
       const RIGHT_SCREEN_WIDTH = 6400;
+      const ASPECT_RATIO = TOTAL_WIDTH / TOTAL_HEIGHT; // 6.75:1
 
       canvas.width = TOTAL_WIDTH;
       canvas.height = TOTAL_HEIGHT;
 
-      // Auto-Skalierung für normale Monitore
+      // Auto-Skalierung mit korrektem Aspect Ratio
       function scaleCanvas() {
         const windowWidth = window.innerWidth;
         const windowHeight = window.innerHeight;
+        const windowRatio = windowWidth / windowHeight;
 
-        const scaleX = windowWidth / TOTAL_WIDTH;
-        const scaleY = windowHeight / TOTAL_HEIGHT;
-        const scale = Math.min(scaleX, scaleY);
+        let scale;
+        if (windowRatio > ASPECT_RATIO) {
+          // Fenster ist breiter als benötigt - Höhe als Basis
+          scale = windowHeight / TOTAL_HEIGHT;
+        } else {
+          // Fenster ist höher als benötigt - Breite als Basis
+          scale = windowWidth / TOTAL_WIDTH;
+        }
 
         canvas.style.width = TOTAL_WIDTH * scale + "px";
         canvas.style.height = TOTAL_HEIGHT * scale + "px";
@@ -69,6 +98,61 @@
 
       window.addEventListener("resize", scaleCanvas);
       scaleCanvas();
+
+      // Fullscreen Funktionalität
+      function enterFullscreen() {
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) {
+          elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) {
+          elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) {
+          elem.msRequestFullscreen();
+        }
+      }
+
+      // Fullscreen Status überwachen
+      function checkFullscreen() {
+        if (document.fullscreenElement) {
+          fullscreenBtn.style.display = "none";
+        } else {
+          fullscreenBtn.style.display = "block";
+        }
+        scaleCanvas();
+      }
+
+      document.addEventListener("fullscreenchange", checkFullscreen);
+      document.addEventListener("webkitfullscreenchange", checkFullscreen);
+
+      fullscreenBtn.addEventListener("click", enterFullscreen);
+
+      // Auto-Fullscreen beim Laden (funktioniert nur mit User-Interaktion)
+      window.addEventListener("load", () => {
+        // Zeige Button falls nicht im Fullscreen
+        setTimeout(() => {
+          if (!document.fullscreenElement) {
+            fullscreenBtn.style.display = "block";
+          }
+        }, 100);
+      });
+
+      // Klick irgendwo = Fullscreen
+      let firstClick = true;
+      document.addEventListener("click", () => {
+        if (firstClick && !document.fullscreenElement) {
+          enterFullscreen();
+          firstClick = false;
+        }
+      });
+
+      // F11 Alternative mit F-Taste
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "f" || e.key === "F") {
+          if (!document.fullscreenElement) {
+            enterFullscreen();
+          }
+        }
+      });
 
       // Spielvariablen
       const PADDLE_WIDTH = 30;
@@ -223,13 +307,6 @@
       // Spiel starten
       resetBall();
       gameLoop();
-
-      // Fullscreen bei Klick
-      canvas.addEventListener("click", () => {
-        if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen();
-        }
-      });
     </script>
   </body>
 </html>
