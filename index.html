@@ -20,6 +20,14 @@
         height: 100vh;
       }
 
+      #canvasContainer {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 100%;
+      }
+
       canvas {
         display: block;
         background: #000;
@@ -29,7 +37,9 @@
     </style>
   </head>
   <body>
-    <canvas id="gameCanvas"></canvas>
+    <div id="canvasContainer">
+      <canvas id="gameCanvas"></canvas>
+    </div>
 
     <script>
       const canvas = document.getElementById("gameCanvas");
@@ -43,6 +53,22 @@
 
       canvas.width = TOTAL_WIDTH;
       canvas.height = TOTAL_HEIGHT;
+
+      // Auto-Skalierung für normale Monitore
+      function scaleCanvas() {
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+
+        const scaleX = windowWidth / TOTAL_WIDTH;
+        const scaleY = windowHeight / TOTAL_HEIGHT;
+        const scale = Math.min(scaleX, scaleY);
+
+        canvas.style.width = TOTAL_WIDTH * scale + "px";
+        canvas.style.height = TOTAL_HEIGHT * scale + "px";
+      }
+
+      window.addEventListener("resize", scaleCanvas);
+      scaleCanvas();
 
       // Spielvariablen
       const PADDLE_WIDTH = 30;
@@ -132,8 +158,8 @@
         ctx.fillRect(0, 0, TOTAL_WIDTH, TOTAL_HEIGHT);
 
         // Trennlinie zwischen Screens
-        ctx.strokeStyle = "#333";
-        ctx.lineWidth = 5;
+        ctx.strokeStyle = "#ff0000";
+        ctx.lineWidth = 10;
         ctx.beginPath();
         ctx.moveTo(LEFT_SCREEN_WIDTH, 0);
         ctx.lineTo(LEFT_SCREEN_WIDTH, TOTAL_HEIGHT);
