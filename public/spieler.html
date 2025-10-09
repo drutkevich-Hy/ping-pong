@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pong - Spieler</title>
+    <style>
+      /* ... dein CSS ... */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #1a1a1a;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: Arial, sans-serif;
+      }
+
+      #info {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        background: rgba(0, 0, 0, 0.8);
+        color: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        font-size: 14px;
+        z-index: 1000;
+      }
+
+      .status {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+      }
+
+      .connected {
+        background: #00ff00;
+        box-shadow: 0 0 10px #00ff00;
+      }
+
+      .disconnected {
+        background: #ff0000;
+        box-shadow: 0 0 10px #ff0000;
+      }
+
+      canvas {
+        background: #000;
+        border: 3px solid #333;
+        box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+      }
+
+      #controls {
+        margin-top: 20px;
+        color: #888;
+        font-size: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="info">
+      <span class="status disconnected" id="status"></span>
+      <span id="statusText">Verbinde...</span>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+    <div id="controls">Steuerung: W/S oder ↑/↓</div>
+
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <script>
+      // === KONFIGURATION ===
+      // Ersetze mit deiner Railway URL nach Deployment
+      const WEBSOCKET_URL =
+        "https://your-railway-app.railway.app" || "http://localhost:3000";
+      // ====================
+
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      const statusEl = document.getElementById("status");
+      const statusText = document.getElementById("statusText");
+
+      canvas.width = 1200;
+      canvas.height = 600;
+
+      // Socket.io Verbindung mit Railway Server
+      const socket = io(WEBSOCKET_URL, {
+        transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+      });
+
+      socket.on("connect", () => {
+        statusEl.className = "status connected";
+        statusText.textContent = "Verbunden - Streaming aktiv";
+        console.log("Verbunden mit Server:", WEBSOCKET_URL);
+      });
+
+      socket.on("disconnect", () => {
+        statusEl.className = "status disconnected";
+        statusText.textContent = "Getrennt - Warte auf Verbindung...";
+      });
+
+      socket.on("connect_error", (error) => {
+        console.error("Verbindungsfehler:", error);
+        statusEl.className = "status disconnected";
+        statusText.textContent = "Verbindungsfehler...";
+      });
+
+      // Spielvariablen
+      const PADDLE_WIDTH = 15;
+      const PADDLE_HEIGHT = 100;
+      const BALL_SIZE = 15;
+      const PADDLE_SPEED = 8;
+      const INITIAL_BALL_SPEED = 5;
+      const AI_SPEED = 5;
+
+      let playerY = canvas.height / 2 - PADDLE_HEIGHT / 2;
+      let aiY = canvas.height / 2 - PADDLE_HEIGHT / 2;
+      let ballX = canvas.width / 2;
+      let ballY = canvas.height / 2;
+      let ballVelX = INITIAL_BALL_SPEED;
+      let ballVelY = INITIAL_BALL_SPEED;
+      let playerScore = 0;
+      let aiScore = 0;
+      let ballSpeed = INITIAL_BALL_SPEED;
+
+      const keys = {};
+      document.addEventListener("keydown", (e) => (keys[e.key] = true));
+      document.addEventListener("keyup", (e) => (keys[e.key] = false));
+
+      function resetBall() {
+        ballX = canvas.width / 2;
+        ballY = canvas.height / 2;
+        ballSpeed = INITIAL_BALL_SPEED;
+        ballVelX = (Math.random() > 0.5 ? 1 : -1) * ballSpeed;
+        ballVelY = (Math.random() * 2 - 1) * ballSpeed;
+      }
+
+      function updateAI() {
+        const targetY = ballY - PADDLE_HEIGHT / 2;
+        if (ballVelX > 0) {
+          const diff = targetY - aiY;
+          const moveAmount = AI_SPEED * 0.7;
+          if (Math.abs(diff) > moveAmount) {
+            if (diff > 0 && aiY < canvas.height - PADDLE_HEIGHT) {
+              aiY += moveAmount;
+            } else if (diff < 0 && aiY > 0) {
+              aiY -= moveAmount;
+            }
+          }
+        }
+      }
+
+      function update() {
+        if (keys["w"] || keys["W"] || keys["ArrowUp"]) {
+          if (playerY > 0) playerY -= PADDLE_SPEED;
+        }
+        if (keys["s"] || keys["S"] || keys["ArrowDown"]) {
+          if (playerY < canvas.height - PADDLE_HEIGHT)
+            playerY += PADDLE_SPEED;
+        }
+
+        updateAI();
+
+        ballX += ballVelX;
+        ballY += ballVelY;
+
+        if (ballY <= 0 || ballY >= canvas.height - BALL_SIZE) {
+          ballVelY *= -1;
+        }
+
+        if (
+          ballX <= 50 + PADDLE_WIDTH &&
+          ballX > 50 &&
+          ballY + BALL_SIZE >= playerY &&
+          ballY <= playerY + PADDLE_HEIGHT
+        ) {
+          ballVelX = Math.abs(ballVelX) * 1.05;
+          const hitPos = (ballY + BALL_SIZE / 2 - playerY) / PADDLE_HEIGHT;
+          ballVelY = (hitPos - 0.5) * ballSpeed * 2;
+          ballSpeed *= 1.05;
+        }
+
+        if (
+          ballX + BALL_SIZE >= canvas.width - 50 - PADDLE_WIDTH &&
+          ballX + BALL_SIZE < canvas.width - 50 &&
+          ballY + BALL_SIZE >= aiY &&
+          ballY <= aiY + PADDLE_HEIGHT
+        ) {
+          ballVelX = -Math.abs(ballVelX) * 1.05;
+          const hitPos = (ballY + BALL_SIZE / 2 - aiY) / PADDLE_HEIGHT;
+          ballVelY = (hitPos - 0.5) * ballSpeed * 2;
+          ballSpeed *= 1.05;
+        }
+
+        if (ballX < 0) {
+          aiScore++;
+          resetBall();
+        }
+        if (ballX > canvas.width) {
+          playerScore++;
+          resetBall();
+        }
+
+        sendGameState();
+      }
+
+      function sendGameState() {
+        if (socket.connected) {
+          const gameState = {
+            playerY,
+            aiY,
+            ballX,
+            ballY,
+            playerScore,
+            aiScore,
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height,
+          };
+          socket.emit("gameState", gameState);
+        }
+      }
+
+      function draw() {
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.strokeStyle = "#333";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 10]);
+        ctx.beginPath();
+        ctx.moveTo(canvas.width / 2, 0);
+        ctx.lineTo(canvas.width / 2, canvas.height);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = "#00ff00";
+        ctx.fillRect(50, playerY, PADDLE_WIDTH, PADDLE_HEIGHT);
+
+        ctx.fillStyle = "#ff0000";
+        ctx.fillRect(
+          canvas.width - 50 - PADDLE_WIDTH,
+          aiY,
+          PADDLE_WIDTH,
+          PADDLE_HEIGHT
+        );
+
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(ballX, ballY, BALL_SIZE, BALL_SIZE);
+
+        ctx.font = "bold 48px Arial";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#00ff00";
+        ctx.fillText(playerScore, canvas.width / 4, 60);
+        ctx.fillStyle = "#ff0000";
+        ctx.fillText(aiScore, (canvas.width * 3) / 4, 60);
+      }
+
+      function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+      }
+
+      resetBall();
+      gameLoop();
+    </script>
+  </body>
+</html>
