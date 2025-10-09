@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LED Screen Pong</title>
+    <title>LED Screen Pong mit Mirror</title>
     <style>
       * {
         margin: 0;
@@ -35,29 +35,9 @@
         image-rendering: pixelated;
         image-rendering: crisp-edges;
       }
-
-      #fullscreenBtn {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 15px 30px;
-        background: #ff0000;
-        color: #fff;
-        border: none;
-        border-radius: 5px;
-        font-size: 18px;
-        cursor: pointer;
-        z-index: 1000;
-        display: none;
-      }
-
-      #fullscreenBtn:hover {
-        background: #cc0000;
-      }
     </style>
   </head>
   <body>
-    <button id="fullscreenBtn">Fullscreen (F11)</button>
     <div id="canvasContainer">
       <canvas id="gameCanvas"></canvas>
     </div>
@@ -65,19 +45,18 @@
     <script>
       const canvas = document.getElementById("gameCanvas");
       const ctx = canvas.getContext("2d");
-      const fullscreenBtn = document.getElementById("fullscreenBtn");
 
       // Display-Spezifikationen
       const TOTAL_WIDTH = 10368;
       const TOTAL_HEIGHT = 1536;
       const LEFT_SCREEN_WIDTH = 3968;
       const RIGHT_SCREEN_WIDTH = 6400;
-      const ASPECT_RATIO = TOTAL_WIDTH / TOTAL_HEIGHT; // 6.75:1
+      const ASPECT_RATIO = TOTAL_WIDTH / TOTAL_HEIGHT;
 
       canvas.width = TOTAL_WIDTH;
       canvas.height = TOTAL_HEIGHT;
 
-      // Auto-Skalierung mit korrektem Aspect Ratio
+      // Auto-Skalierung
       function scaleCanvas() {
         const windowWidth = window.innerWidth;
         const windowHeight = window.innerHeight;
@@ -85,10 +64,8 @@
 
         let scale;
         if (windowRatio > ASPECT_RATIO) {
-          // Fenster ist breiter als benötigt - Höhe als Basis
           scale = windowHeight / TOTAL_HEIGHT;
         } else {
-          // Fenster ist höher als benötigt - Breite als Basis
           scale = windowWidth / TOTAL_WIDTH;
         }
 
@@ -99,99 +76,63 @@
       window.addEventListener("resize", scaleCanvas);
       scaleCanvas();
 
-      // Fullscreen Funktionalität
-      function enterFullscreen() {
-        const elem = document.documentElement;
-        if (elem.requestFullscreen) {
-          elem.requestFullscreen();
-        } else if (elem.webkitRequestFullscreen) {
-          elem.webkitRequestFullscreen();
-        } else if (elem.msRequestFullscreen) {
-          elem.msRequestFullscreen();
-        }
-      }
-
-      // Fullscreen Status überwachen
-      function checkFullscreen() {
-        if (document.fullscreenElement) {
-          fullscreenBtn.style.display = "none";
-        } else {
-          fullscreenBtn.style.display = "block";
-        }
-        scaleCanvas();
-      }
-
-      document.addEventListener("fullscreenchange", checkFullscreen);
-      document.addEventListener("webkitfullscreenchange", checkFullscreen);
-
-      fullscreenBtn.addEventListener("click", enterFullscreen);
-
-      // Auto-Fullscreen beim Laden (funktioniert nur mit User-Interaktion)
-      window.addEventListener("load", () => {
-        // Zeige Button falls nicht im Fullscreen
-        setTimeout(() => {
-          if (!document.fullscreenElement) {
-            fullscreenBtn.style.display = "block";
-          }
-        }, 100);
-      });
-
-      // Klick irgendwo = Fullscreen
-      let firstClick = true;
-      document.addEventListener("click", () => {
-        if (firstClick && !document.fullscreenElement) {
-          enterFullscreen();
-          firstClick = false;
-        }
-      });
-
-      // F11 Alternative mit F-Taste
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "f" || e.key === "F") {
-          if (!document.fullscreenElement) {
-            enterFullscreen();
-          }
-        }
-      });
-
       // Spielvariablen
-      const PADDLE_WIDTH = 30;
-      const PADDLE_HEIGHT = 200;
-      const BALL_SIZE = 30;
-      const PADDLE_SPEED = 15;
-      const BALL_SPEED = 8;
+      const PADDLE_WIDTH = 40;
+      const PADDLE_HEIGHT = 250;
+      const BALL_SIZE = 35;
+      const PADDLE_SPEED = 18;
+      const INITIAL_BALL_SPEED = 10;
 
       let player1Y = TOTAL_HEIGHT / 2 - PADDLE_HEIGHT / 2;
       let player2Y = TOTAL_HEIGHT / 2 - PADDLE_HEIGHT / 2;
       let ballX = LEFT_SCREEN_WIDTH / 2;
       let ballY = TOTAL_HEIGHT / 2;
-      let ballVelX = BALL_SPEED;
-      let ballVelY = BALL_SPEED;
+      let ballVelX = INITIAL_BALL_SPEED;
+      let ballVelY = INITIAL_BALL_SPEED;
       let score1 = 0;
       let score2 = 0;
+      let ballSpeed = INITIAL_BALL_SPEED;
 
       // Tastatureingaben
       const keys = {};
-      document.addEventListener("keydown", (e) => (keys[e.key] = true));
+      document.addEventListener("keydown", (e) => {
+        keys[e.key] = true;
+        // Fullscreen bei F-Taste
+        if (
+          (e.key === "f" || e.key === "F") &&
+          !document.fullscreenElement
+        ) {
+          enterFullscreen();
+        }
+      });
       document.addEventListener("keyup", (e) => (keys[e.key] = false));
 
       function resetBall() {
         ballX = LEFT_SCREEN_WIDTH / 2;
         ballY = TOTAL_HEIGHT / 2;
-        ballVelX = (Math.random() > 0.5 ? 1 : -1) * BALL_SPEED;
-        ballVelY = (Math.random() * 2 - 1) * BALL_SPEED;
+        ballSpeed = INITIAL_BALL_SPEED;
+        ballVelX = (Math.random() > 0.5 ? 1 : -1) * ballSpeed;
+        ballVelY = (Math.random() * 2 - 1) * ballSpeed;
       }
 
       function update() {
-        // Spieler 1 (W/S)
-        if (keys["w"] && player1Y > 0) player1Y -= PADDLE_SPEED;
-        if (keys["s"] && player1Y < TOTAL_HEIGHT - PADDLE_HEIGHT)
-          player1Y += PADDLE_SPEED;
+        // Spieler 1 (W/S) - Links
+        if (keys["w"] || keys["W"]) {
+          if (player1Y > 0) player1Y -= PADDLE_SPEED;
+        }
+        if (keys["s"] || keys["S"]) {
+          if (player1Y < TOTAL_HEIGHT - PADDLE_HEIGHT)
+            player1Y += PADDLE_SPEED;
+        }
 
-        // Spieler 2 (Pfeiltasten)
-        if (keys["ArrowUp"] && player2Y > 0) player2Y -= PADDLE_SPEED;
-        if (keys["ArrowDown"] && player2Y < TOTAL_HEIGHT - PADDLE_HEIGHT)
-          player2Y += PADDLE_SPEED;
+        // Spieler 2 (Pfeiltasten) - Rechts
+        if (keys["ArrowUp"]) {
+          if (player2Y > 0) player2Y -= PADDLE_SPEED;
+        }
+        if (keys["ArrowDown"]) {
+          if (player2Y < TOTAL_HEIGHT - PADDLE_HEIGHT)
+            player2Y += PADDLE_SPEED;
+        }
 
         // Ball bewegen
         ballX += ballVelX;
@@ -202,27 +143,30 @@
           ballVelY *= -1;
         }
 
-        // Paddle-Kollision
-        // Spieler 1 (links)
+        // Paddle-Kollision Spieler 1 (links)
         if (
-          ballX <= 100 + PADDLE_WIDTH &&
+          ballX <= 120 + PADDLE_WIDTH &&
+          ballX > 100 &&
           ballY + BALL_SIZE >= player1Y &&
           ballY <= player1Y + PADDLE_HEIGHT
         ) {
-          ballVelX = Math.abs(ballVelX);
-          const hitPos = (ballY - player1Y) / PADDLE_HEIGHT - 0.5;
-          ballVelY = hitPos * BALL_SPEED * 2;
+          ballVelX = Math.abs(ballVelX) * 1.05;
+          const hitPos = (ballY + BALL_SIZE / 2 - player1Y) / PADDLE_HEIGHT;
+          ballVelY = (hitPos - 0.5) * ballSpeed * 2;
+          ballSpeed *= 1.05;
         }
 
-        // Spieler 2 (rechts)
+        // Paddle-Kollision Spieler 2 (rechts)
         if (
-          ballX >= LEFT_SCREEN_WIDTH - 100 - PADDLE_WIDTH - BALL_SIZE &&
+          ballX + BALL_SIZE >= LEFT_SCREEN_WIDTH - 120 - PADDLE_WIDTH &&
+          ballX + BALL_SIZE < LEFT_SCREEN_WIDTH - 100 &&
           ballY + BALL_SIZE >= player2Y &&
           ballY <= player2Y + PADDLE_HEIGHT
         ) {
-          ballVelX = -Math.abs(ballVelX);
-          const hitPos = (ballY - player2Y) / PADDLE_HEIGHT - 0.5;
-          ballVelY = hitPos * BALL_SPEED * 2;
+          ballVelX = -Math.abs(ballVelX) * 1.05;
+          const hitPos = (ballY + BALL_SIZE / 2 - player2Y) / PADDLE_HEIGHT;
+          ballVelY = (hitPos - 0.5) * ballSpeed * 2;
+          ballSpeed *= 1.05;
         }
 
         // Scoring
@@ -241,6 +185,8 @@
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, TOTAL_WIDTH, TOTAL_HEIGHT);
 
+        // === LINKER SCREEN: PONG SPIEL ===
+
         // Trennlinie zwischen Screens
         ctx.strokeStyle = "#ff0000";
         ctx.lineWidth = 10;
@@ -250,21 +196,26 @@
         ctx.stroke();
 
         // Mittellinie im Spielfeld
-        ctx.strokeStyle = "#444";
+        ctx.strokeStyle = "#333";
         ctx.lineWidth = 5;
-        ctx.setLineDash([40, 40]);
+        ctx.setLineDash([60, 40]);
         ctx.beginPath();
         ctx.moveTo(LEFT_SCREEN_WIDTH / 2, 0);
         ctx.lineTo(LEFT_SCREEN_WIDTH / 2, TOTAL_HEIGHT);
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Spieler 1 Paddle (links)
+        // Spieler 1 Paddle (links, grün)
         ctx.fillStyle = "#00ff00";
         ctx.fillRect(100, player1Y, PADDLE_WIDTH, PADDLE_HEIGHT);
 
-        // Spieler 2 Paddle (rechts)
-        ctx.fillStyle = "#0099ff";
+        // Spieler 1 Name
+        ctx.font = "bold 80px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("PLAYER 1", LEFT_SCREEN_WIDTH / 4, 100);
+
+        // Spieler 2 Paddle (rechts im linken screen, blau)
+        ctx.fillStyle = "#00aaff";
         ctx.fillRect(
           LEFT_SCREEN_WIDTH - 100 - PADDLE_WIDTH,
           player2Y,
@@ -272,31 +223,125 @@
           PADDLE_HEIGHT
         );
 
+        // Spieler 2 Name
+        ctx.fillText("PLAYER 2", (LEFT_SCREEN_WIDTH * 3) / 4, 100);
+
         // Ball
         ctx.fillStyle = "#fff";
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = "#fff";
         ctx.fillRect(ballX, ballY, BALL_SIZE, BALL_SIZE);
+        ctx.shadowBlur = 0;
 
-        // Score auf rechtem Screen
-        const scoreX = LEFT_SCREEN_WIDTH + RIGHT_SCREEN_WIDTH / 2;
-        const scoreY = TOTAL_HEIGHT / 2;
+        // === RECHTER SCREEN: GESPIEGELTES SPIEL + SCORE ===
 
-        ctx.font = "bold 600px Arial";
+        const rightScreenStart = LEFT_SCREEN_WIDTH;
+        const mirrorCenterX = rightScreenStart + RIGHT_SCREEN_WIDTH / 2;
+
+        // Gespiegeltes Spielfeld (kleiner, zentriert)
+        const mirrorScale = 0.6;
+        const mirrorWidth = LEFT_SCREEN_WIDTH * mirrorScale;
+        const mirrorHeight = TOTAL_HEIGHT * mirrorScale;
+        const mirrorX = mirrorCenterX - mirrorWidth / 2;
+        const mirrorY = (TOTAL_HEIGHT - mirrorHeight) / 2;
+
+        // Rahmen um gespiegeltes Spiel
+        ctx.strokeStyle = "#444";
+        ctx.lineWidth = 8;
+        ctx.strokeRect(mirrorX, mirrorY, mirrorWidth, mirrorHeight);
+
+        // Mirror-Hintergrund
+        ctx.fillStyle = "#111";
+        ctx.fillRect(mirrorX, mirrorY, mirrorWidth, mirrorHeight);
+
+        // Mittellinie im Mirror
+        ctx.strokeStyle = "#333";
+        ctx.lineWidth = 3;
+        ctx.setLineDash([30, 20]);
+        ctx.beginPath();
+        ctx.moveTo(mirrorCenterX, mirrorY);
+        ctx.lineTo(mirrorCenterX, mirrorY + mirrorHeight);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Gespiegelte Paddles
+        const paddle1MirrorX = mirrorX + (100 / LEFT_SCREEN_WIDTH) * mirrorWidth;
+        const paddle2MirrorX =
+          mirrorX +
+          ((LEFT_SCREEN_WIDTH - 100 - PADDLE_WIDTH) / LEFT_SCREEN_WIDTH) *
+            mirrorWidth;
+        const paddleMirrorWidth = (PADDLE_WIDTH / LEFT_SCREEN_WIDTH) * mirrorWidth;
+        const paddleMirrorHeight = (PADDLE_HEIGHT / TOTAL_HEIGHT) * mirrorHeight;
+        const paddle1MirrorY =
+          mirrorY + (player1Y / TOTAL_HEIGHT) * mirrorHeight;
+        const paddle2MirrorY =
+          mirrorY + (player2Y / TOTAL_HEIGHT) * mirrorHeight;
+
+        ctx.fillStyle = "#00ff00";
+        ctx.fillRect(
+          paddle1MirrorX,
+          paddle1MirrorY,
+          paddleMirrorWidth,
+          paddleMirrorHeight
+        );
+
+        ctx.fillStyle = "#00aaff";
+        ctx.fillRect(
+          paddle2MirrorX,
+          paddle2MirrorY,
+          paddleMirrorWidth,
+          paddleMirrorHeight
+        );
+
+        // Gespiegelter Ball
+        const ballMirrorX = mirrorX + (ballX / LEFT_SCREEN_WIDTH) * mirrorWidth;
+        const ballMirrorY = mirrorY + (ballY / TOTAL_HEIGHT) * mirrorHeight;
+        const ballMirrorSize = (BALL_SIZE / LEFT_SCREEN_WIDTH) * mirrorWidth;
+
+        ctx.fillStyle = "#fff";
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "#fff";
+        ctx.fillRect(ballMirrorX, ballMirrorY, ballMirrorSize, ballMirrorSize);
+        ctx.shadowBlur = 0;
+
+        // SCORE - Groß über dem Mirror
+        ctx.font = "bold 400px Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
 
-        // Spieler 1 Score (oben)
+        // Player 1 Score
         ctx.fillStyle = "#00ff00";
-        ctx.fillText(score1, scoreX, scoreY - 300);
+        ctx.fillText(score1, mirrorCenterX - 500, 300);
 
-        // Spieler 2 Score (unten)
-        ctx.fillStyle = "#0099ff";
-        ctx.fillText(score2, scoreX, scoreY + 300);
+        // Trennstrich
+        ctx.fillStyle = "#666";
+        ctx.fillText(":", mirrorCenterX, 300);
 
-        // "vs" Text
-        ctx.font = "bold 200px Arial";
-        ctx.fillStyle = "#fff";
-        ctx.fillText("VS", scoreX, scoreY);
+        // Player 2 Score
+        ctx.fillStyle = "#00aaff";
+        ctx.fillText(score2, mirrorCenterX + 500, 300);
+
+        // "LIVE" Indicator
+        ctx.font = "bold 100px Arial";
+        ctx.fillStyle = "#ff0000";
+        const time = Date.now();
+        if (Math.floor(time / 500) % 2 === 0) {
+          ctx.fillText("● LIVE", mirrorCenterX, TOTAL_HEIGHT - 150);
+        }
+
+        // Steuerungshinweis (verschwindet nach 5 Sekunden)
+        if (time - startTime < 5000) {
+          ctx.font = "bold 60px Arial";
+          ctx.fillStyle = "#888";
+          ctx.fillText(
+            "Player 1: W/S  •  Player 2: ↑/↓  •  F: Fullscreen",
+            mirrorCenterX,
+            TOTAL_HEIGHT - 50
+          );
+        }
       }
+
+      let startTime = Date.now();
 
       function gameLoop() {
         update();
@@ -304,9 +349,35 @@
         requestAnimationFrame(gameLoop);
       }
 
+      // Auto-Fullscreen
+      function enterFullscreen() {
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) {
+          elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) {
+          elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) {
+          elem.msRequestFullscreen();
+        }
+      }
+
+      // Fullscreen bei Klick
+      let firstClick = true;
+      document.addEventListener("click", () => {
+        if (firstClick && !document.fullscreenElement) {
+          enterFullscreen();
+          firstClick = false;
+        }
+      });
+
       // Spiel starten
-      resetBall();
-      gameLoop();
+      window.addEventListener("load", () => {
+        resetBall();
+        gameLoop();
+        setTimeout(() => {
+          if (!document.fullscreenElement) enterFullscreen();
+        }, 500);
+      });
     </script>
   </body>
 </html>
