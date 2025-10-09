@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LED Screen Display</title>
+    <title>LED Screen Pong - AI Battle</title>
     <style>
       * {
         margin: 0;
@@ -14,65 +14,67 @@
       body {
         background: #000;
         overflow: hidden;
-        width: 100vw;
-        height: 100vh;
-      }
-
-      #screenCanvas {
-        width: 100%;
-        height: 100%;
         display: flex;
         justify-content: center;
         align-items: center;
-        background: #000;
+        height: 100vh;
+        width: 100vw;
       }
 
-      #mainScreen {
+      #canvasContainer {
         display: flex;
-        background: #000;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 100%;
         position: relative;
       }
 
-      iframe {
-        border: none;
-        width: 100%;
-        height: 100%;
+      canvas {
         display: block;
+        background: #000;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+
+      #logo {
+        position: absolute;
+        top: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        max-width: 300px;
+        max-height: 120px;
+        z-index: 10;
       }
     </style>
   </head>
   <body>
-    <div id="screenCanvas">
-      <div id="mainScreen"></div>
+    <div id="canvasContainer">
+      <img
+        id="logo"
+        src="logo.svg"
+        alt="Logo"
+        onerror="this.style.display='none'"
+      />
+      <canvas id="gameCanvas"></canvas>
     </div>
 
     <script>
-      // ============================================
-      // CONFIGURATION - Change URL here
-      // ============================================
-      const GAME_URL = "https://your-pong-game-url.com/pong-ai.html";
-      // ============================================
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
 
+      // Display-Spezifikationen
       const TOTAL_WIDTH = 10368;
       const TOTAL_HEIGHT = 1536;
+      const LEFT_SCREEN_WIDTH = 3968;
+      const RIGHT_SCREEN_WIDTH = 6400;
       const ASPECT_RATIO = TOTAL_WIDTH / TOTAL_HEIGHT;
 
-      const mainScreen = document.getElementById("mainScreen");
+      canvas.width = TOTAL_WIDTH;
+      canvas.height = TOTAL_HEIGHT;
 
-      // Create iframe for game
-      function loadGame() {
-        const iframe = document.createElement("iframe");
-        iframe.src = GAME_URL;
-        iframe.allow = "autoplay";
-        iframe.allowFullscreen = true;
-        iframe.style.width = TOTAL_WIDTH + "px";
-        iframe.style.height = TOTAL_HEIGHT + "px";
-        mainScreen.appendChild(iframe);
-        scaleScreen();
-      }
-
-      // Scale to fit window while maintaining aspect ratio
-      function scaleScreen() {
+      // Auto-Skalierung mit korrektem Aspect Ratio
+      function scaleCanvas() {
         const windowWidth = window.innerWidth;
         const windowHeight = window.innerHeight;
         const windowRatio = windowWidth / windowHeight;
@@ -84,39 +86,201 @@
           scale = windowWidth / TOTAL_WIDTH;
         }
 
-        mainScreen.style.width = TOTAL_WIDTH * scale + "px";
-        mainScreen.style.height = TOTAL_HEIGHT * scale + "px";
+        canvas.style.width = TOTAL_WIDTH * scale + "px";
+        canvas.style.height = TOTAL_HEIGHT * scale + "px";
       }
 
-      // Auto fullscreen
-      function enterFullscreen() {
-        const elem = document.documentElement;
-        if (elem.requestFullscreen) {
-          elem.requestFullscreen();
-        } else if (elem.webkitRequestFullscreen) {
-          elem.webkitRequestFullscreen();
-        } else if (elem.msRequestFullscreen) {
-          elem.msRequestFullscreen();
+      window.addEventListener("resize", scaleCanvas);
+      scaleCanvas();
+
+      // Spielvariablen
+      const PADDLE_WIDTH = 30;
+      const PADDLE_HEIGHT = 200;
+      const BALL_SIZE = 30;
+      const PADDLE_SPEED = 15;
+      const BALL_SPEED = 8;
+      const AI_REACTION_SPEED = 0.7;
+      const AI_PREDICTION_ERROR = 50;
+
+      let player1Y = TOTAL_HEIGHT / 2 - PADDLE_HEIGHT / 2;
+      let player2Y = TOTAL_HEIGHT / 2 - PADDLE_HEIGHT / 2;
+      let ballX = LEFT_SCREEN_WIDTH / 2;
+      let ballY = TOTAL_HEIGHT / 2;
+      let ballVelX = BALL_SPEED;
+      let ballVelY = BALL_SPEED;
+      let score1 = 0;
+      let score2 = 0;
+
+      let ai1Target = TOTAL_HEIGHT / 2;
+      let ai2Target = TOTAL_HEIGHT / 2;
+
+      function resetBall() {
+        ballX = LEFT_SCREEN_WIDTH / 2;
+        ballY = TOTAL_HEIGHT / 2;
+        ballVelX = (Math.random() > 0.5 ? 1 : -1) * BALL_SPEED;
+        ballVelY = (Math.random() * 2 - 1) * BALL_SPEED;
+      }
+
+      function updateAI1() {
+        if (ballVelX < 0) {
+          const error = (Math.random() - 0.5) * AI_PREDICTION_ERROR;
+          ai1Target = ballY + error - PADDLE_HEIGHT / 2;
+        } else {
+          ai1Target = TOTAL_HEIGHT / 2 - PADDLE_HEIGHT / 2;
+        }
+
+        const diff = ai1Target - player1Y;
+        const movement = diff * AI_REACTION_SPEED;
+
+        if (Math.abs(movement) > 1) {
+          player1Y +=
+            Math.sign(movement) * Math.min(PADDLE_SPEED, Math.abs(movement));
+        }
+
+        player1Y = Math.max(
+          0,
+          Math.min(TOTAL_HEIGHT - PADDLE_HEIGHT, player1Y)
+        );
+      }
+
+      function updateAI2() {
+        if (ballVelX > 0) {
+          const error = (Math.random() - 0.5) * AI_PREDICTION_ERROR;
+          ai2Target = ballY + error - PADDLE_HEIGHT / 2;
+        } else {
+          ai2Target = TOTAL_HEIGHT / 2 - PADDLE_HEIGHT / 2;
+        }
+
+        const diff = ai2Target - player2Y;
+        const movement = diff * AI_REACTION_SPEED;
+
+        if (Math.abs(movement) > 1) {
+          player2Y +=
+            Math.sign(movement) * Math.min(PADDLE_SPEED, Math.abs(movement));
+        }
+
+        player2Y = Math.max(
+          0,
+          Math.min(TOTAL_HEIGHT - PADDLE_HEIGHT, player2Y)
+        );
+      }
+
+      function update() {
+        updateAI1();
+        updateAI2();
+
+        ballX += ballVelX;
+        ballY += ballVelY;
+
+        if (ballY <= 0 || ballY >= TOTAL_HEIGHT - BALL_SIZE) {
+          ballVelY *= -1;
+          ballY = Math.max(0, Math.min(TOTAL_HEIGHT - BALL_SIZE, ballY));
+        }
+
+        if (
+          ballX <= 100 + PADDLE_WIDTH &&
+          ballX + BALL_SIZE >= 100 &&
+          ballY + BALL_SIZE >= player1Y &&
+          ballY <= player1Y + PADDLE_HEIGHT &&
+          ballVelX < 0
+        ) {
+          ballVelX = Math.abs(ballVelX);
+          const hitPos = (ballY - player1Y) / PADDLE_HEIGHT - 0.5;
+          ballVelY = hitPos * BALL_SPEED * 2;
+          ballX = 100 + PADDLE_WIDTH;
+        }
+
+        if (
+          ballX + BALL_SIZE >= LEFT_SCREEN_WIDTH - 100 - PADDLE_WIDTH &&
+          ballX <= LEFT_SCREEN_WIDTH - 100 &&
+          ballY + BALL_SIZE >= player2Y &&
+          ballY <= player2Y + PADDLE_HEIGHT &&
+          ballVelX > 0
+        ) {
+          ballVelX = -Math.abs(ballVelX);
+          const hitPos = (ballY - player2Y) / PADDLE_HEIGHT - 0.5;
+          ballVelY = hitPos * BALL_SPEED * 2;
+          ballX = LEFT_SCREEN_WIDTH - 100 - PADDLE_WIDTH - BALL_SIZE;
+        }
+
+        if (ballX < 0) {
+          score2++;
+          resetBall();
+        }
+        if (ballX > LEFT_SCREEN_WIDTH) {
+          score1++;
+          resetBall();
+        }
+
+        if (score1 >= 11 || score2 >= 11) {
+          setTimeout(() => {
+            score1 = 0;
+            score2 = 0;
+            resetBall();
+          }, 2000);
         }
       }
 
-      // Initialize
-      window.addEventListener("load", () => {
-        loadGame();
-        setTimeout(enterFullscreen, 100);
-      });
+      function draw() {
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, TOTAL_WIDTH, TOTAL_HEIGHT);
 
-      window.addEventListener("resize", scaleScreen);
-      document.addEventListener("fullscreenchange", scaleScreen);
+        ctx.strokeStyle = "#ff0000";
+        ctx.lineWidth = 10;
+        ctx.beginPath();
+        ctx.moveTo(LEFT_SCREEN_WIDTH, 0);
+        ctx.lineTo(LEFT_SCREEN_WIDTH, TOTAL_HEIGHT);
+        ctx.stroke();
 
-      // Click anywhere for fullscreen
-      let firstClick = true;
-      document.addEventListener("click", () => {
-        if (firstClick && !document.fullscreenElement) {
-          enterFullscreen();
-          firstClick = false;
-        }
-      });
+        ctx.strokeStyle = "#444";
+        ctx.lineWidth = 5;
+        ctx.setLineDash([40, 40]);
+        ctx.beginPath();
+        ctx.moveTo(LEFT_SCREEN_WIDTH / 2, 0);
+        ctx.lineTo(LEFT_SCREEN_WIDTH / 2, TOTAL_HEIGHT);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = "#00ff00";
+        ctx.fillRect(100, player1Y, PADDLE_WIDTH, PADDLE_HEIGHT);
+
+        ctx.fillStyle = "#0099ff";
+        ctx.fillRect(
+          LEFT_SCREEN_WIDTH - 100 - PADDLE_WIDTH,
+          player2Y,
+          PADDLE_WIDTH,
+          PADDLE_HEIGHT
+        );
+
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(ballX, ballY, BALL_SIZE, BALL_SIZE);
+
+        const scoreX = LEFT_SCREEN_WIDTH + RIGHT_SCREEN_WIDTH / 2;
+        const scoreY = TOTAL_HEIGHT / 2;
+
+        ctx.font = "bold 600px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        ctx.fillStyle = "#00ff00";
+        ctx.fillText(score1, scoreX, scoreY - 300);
+
+        ctx.fillStyle = "#0099ff";
+        ctx.fillText(score2, scoreX, scoreY + 300);
+
+        ctx.font = "bold 200px Arial";
+        ctx.fillStyle = "#fff";
+        ctx.fillText("VS", scoreX, scoreY);
+      }
+
+      function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+      }
+
+      resetBall();
+      gameLoop();
     </script>
   </body>
 </html>
