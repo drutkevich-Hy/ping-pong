@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pong</title>
+    <title>LED Screen Display</title>
     <style>
       * {
         margin: 0;
@@ -16,328 +16,107 @@
         overflow: hidden;
         width: 100vw;
         height: 100vh;
+      }
+
+      #screenCanvas {
+        width: 100%;
+        height: 100%;
         display: flex;
         justify-content: center;
         align-items: center;
-      }
-
-      #gameContainer {
-        position: relative;
-        width: 3968px;
-        height: 1536px;
         background: #000;
       }
 
-      #logo {
-        position: absolute;
-        top: 60px;
-        left: 50%;
-        transform: translateX(-50%);
-        max-width: 400px;
-        max-height: 150px;
-        z-index: 10;
+      #mainScreen {
+        display: flex;
+        background: #000;
+        position: relative;
       }
 
-      #gameCanvas {
+      iframe {
+        border: none;
         width: 100%;
         height: 100%;
         display: block;
       }
-
-      #scoreboard {
-        position: absolute;
-        top: 250px;
-        left: 0;
-        right: 0;
-        display: flex;
-        justify-content: center;
-        gap: 400px;
-        z-index: 10;
-      }
-
-      .score {
-        font-size: 180px;
-        color: #fff;
-        font-family: "Courier New", monospace;
-        font-weight: bold;
-        text-align: center;
-      }
     </style>
   </head>
   <body>
-    <div id="gameContainer">
-      <img
-        id="logo"
-        src="logo.svg"
-        alt="Logo"
-        onerror="this.style.display='none'"
-      />
-
-      <div id="scoreboard">
-        <div class="score" id="scoreLeft">0</div>
-        <div class="score" id="scoreRight">0</div>
-      </div>
-
-      <canvas id="gameCanvas" width="3968" height="1536"></canvas>
+    <div id="screenCanvas">
+      <div id="mainScreen"></div>
     </div>
 
     <script>
       // ============================================
-      // CONFIGURATION
+      // CONFIGURATION - Change URL here
       // ============================================
-      const CONFIG = {
-        CANVAS_WIDTH: 3968,
-        CANVAS_HEIGHT: 1536,
-        PADDLE_WIDTH: 30,
-        PADDLE_HEIGHT: 250,
-        BALL_SIZE: 30,
-        BALL_SPEED: 12,
-        PADDLE_SPEED: 14,
-        AI_SKILL: 0.85, // 0-1, higher = better
-        WINNING_SCORE: 11,
-      };
-
+      const GAME_URL = "https://your-pong-game-url.com/pong-ai.html";
       // ============================================
-      // GAME STATE
-      // ============================================
-      const canvas = document.getElementById("gameCanvas");
-      const ctx = canvas.getContext("2d");
 
-      let game = {
-        ball: {
-          x: CONFIG.CANVAS_WIDTH / 2,
-          y: CONFIG.CANVAS_HEIGHT / 2,
-          dx: CONFIG.BALL_SPEED,
-          dy: CONFIG.BALL_SPEED * (Math.random() > 0.5 ? 1 : -1),
-        },
-        paddleLeft: {
-          x: 100,
-          y: CONFIG.CANVAS_HEIGHT / 2 - CONFIG.PADDLE_HEIGHT / 2,
-        },
-        paddleRight: {
-          x: CONFIG.CANVAS_WIDTH - 100 - CONFIG.PADDLE_WIDTH,
-          y: CONFIG.CANVAS_HEIGHT / 2 - CONFIG.PADDLE_HEIGHT / 2,
-        },
-        score: { left: 0, right: 0 },
-      };
+      const TOTAL_WIDTH = 10368;
+      const TOTAL_HEIGHT = 1536;
+      const ASPECT_RATIO = TOTAL_WIDTH / TOTAL_HEIGHT;
 
-      // ============================================
-      // AI LOGIC
-      // ============================================
-      function updateAI(paddle, isLeft) {
-        const ball = game.ball;
-        const isMovingTowards = isLeft ? ball.dx < 0 : ball.dx > 0;
+      const mainScreen = document.getElementById("mainScreen");
 
-        if (isMovingTowards) {
-          // AI tries to center paddle on ball
-          const paddleCenter = paddle.y + CONFIG.PADDLE_HEIGHT / 2;
-          const ballCenter = ball.y + CONFIG.BALL_SIZE / 2;
-          const diff = ballCenter - paddleCenter;
-
-          // Add some randomness based on skill
-          const reaction = diff * CONFIG.AI_SKILL;
-
-          if (Math.abs(reaction) > 2) {
-            paddle.y += Math.sign(reaction) * CONFIG.PADDLE_SPEED;
-          }
-        } else {
-          // Return to center
-          const center = CONFIG.CANVAS_HEIGHT / 2 - CONFIG.PADDLE_HEIGHT / 2;
-          const diff = center - paddle.y;
-
-          if (Math.abs(diff) > 2) {
-            paddle.y += Math.sign(diff) * CONFIG.PADDLE_SPEED * 0.5;
-          }
-        }
-
-        // Keep in bounds
-        paddle.y = Math.max(
-          0,
-          Math.min(CONFIG.CANVAS_HEIGHT - CONFIG.PADDLE_HEIGHT, paddle.y)
-        );
+      // Create iframe for game
+      function loadGame() {
+        const iframe = document.createElement("iframe");
+        iframe.src = GAME_URL;
+        iframe.allow = "autoplay";
+        iframe.allowFullscreen = true;
+        iframe.style.width = TOTAL_WIDTH + "px";
+        iframe.style.height = TOTAL_HEIGHT + "px";
+        mainScreen.appendChild(iframe);
+        scaleScreen();
       }
 
-      // ============================================
-      // BALL PHYSICS
-      // ============================================
-      function updateBall() {
-        game.ball.x += game.ball.dx;
-        game.ball.y += game.ball.dy;
-
-        // Top/bottom bounce
-        if (
-          game.ball.y <= 0 ||
-          game.ball.y >= CONFIG.CANVAS_HEIGHT - CONFIG.BALL_SIZE
-        ) {
-          game.ball.dy *= -1;
-          game.ball.y = Math.max(
-            0,
-            Math.min(CONFIG.CANVAS_HEIGHT - CONFIG.BALL_SIZE, game.ball.y)
-          );
-        }
-
-        // Left paddle collision
-        if (
-          game.ball.x <= game.paddleLeft.x + CONFIG.PADDLE_WIDTH &&
-          game.ball.x + CONFIG.BALL_SIZE >= game.paddleLeft.x &&
-          game.ball.y + CONFIG.BALL_SIZE >= game.paddleLeft.y &&
-          game.ball.y <= game.paddleLeft.y + CONFIG.PADDLE_HEIGHT &&
-          game.ball.dx < 0
-        ) {
-          game.ball.dx = Math.abs(game.ball.dx);
-          const hitPos =
-            (game.ball.y + CONFIG.BALL_SIZE / 2 - game.paddleLeft.y) /
-            CONFIG.PADDLE_HEIGHT;
-          game.ball.dy = (hitPos - 0.5) * CONFIG.BALL_SPEED * 2;
-        }
-
-        // Right paddle collision
-        if (
-          game.ball.x + CONFIG.BALL_SIZE >= game.paddleRight.x &&
-          game.ball.x <= game.paddleRight.x + CONFIG.PADDLE_WIDTH &&
-          game.ball.y + CONFIG.BALL_SIZE >= game.paddleRight.y &&
-          game.ball.y <= game.paddleRight.y + CONFIG.PADDLE_HEIGHT &&
-          game.ball.dx > 0
-        ) {
-          game.ball.dx = -Math.abs(game.ball.dx);
-          const hitPos =
-            (game.ball.y + CONFIG.BALL_SIZE / 2 - game.paddleRight.y) /
-            CONFIG.PADDLE_HEIGHT;
-          game.ball.dy = (hitPos - 0.5) * CONFIG.BALL_SPEED * 2;
-        }
-
-        // Score
-        if (game.ball.x <= 0) {
-          score("right");
-        } else if (game.ball.x >= CONFIG.CANVAS_WIDTH) {
-          score("left");
-        }
-      }
-
-      // ============================================
-      // SCORING
-      // ============================================
-      function score(side) {
-        if (side === "left") {
-          game.score.left++;
-        } else {
-          game.score.right++;
-        }
-
-        updateScoreboard();
-
-        // Reset ball
-        game.ball = {
-          x: CONFIG.CANVAS_WIDTH / 2,
-          y: CONFIG.CANVAS_HEIGHT / 2,
-          dx: CONFIG.BALL_SPEED * (side === "left" ? 1 : -1),
-          dy: CONFIG.BALL_SPEED * (Math.random() > 0.5 ? 1 : -1),
-        };
-
-        // Check winner
-        if (
-          game.score.left >= CONFIG.WINNING_SCORE ||
-          game.score.right >= CONFIG.WINNING_SCORE
-        ) {
-          setTimeout(resetGame, 2000);
-        }
-      }
-
-      function resetGame() {
-        game.score = { left: 0, right: 0 };
-        updateScoreboard();
-        game.ball.dx = CONFIG.BALL_SPEED * (Math.random() > 0.5 ? 1 : -1);
-      }
-
-      function updateScoreboard() {
-        document.getElementById("scoreLeft").textContent = game.score.left;
-        document.getElementById("scoreRight").textContent =
-          game.score.right;
-      }
-
-      // ============================================
-      // RENDERING
-      // ============================================
-      function draw() {
-        // Clear
-        ctx.fillStyle = "#000";
-        ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
-
-        // Center line
-        ctx.strokeStyle = "#222";
-        ctx.lineWidth = 4;
-        ctx.setLineDash([40, 40]);
-        ctx.beginPath();
-        ctx.moveTo(CONFIG.CANVAS_WIDTH / 2, 0);
-        ctx.lineTo(CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Paddles
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(
-          game.paddleLeft.x,
-          game.paddleLeft.y,
-          CONFIG.PADDLE_WIDTH,
-          CONFIG.PADDLE_HEIGHT
-        );
-        ctx.fillRect(
-          game.paddleRight.x,
-          game.paddleRight.y,
-          CONFIG.PADDLE_WIDTH,
-          CONFIG.PADDLE_HEIGHT
-        );
-
-        // Ball
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(
-          game.ball.x,
-          game.ball.y,
-          CONFIG.BALL_SIZE,
-          CONFIG.BALL_SIZE
-        );
-      }
-
-      // ============================================
-      // GAME LOOP
-      // ============================================
-      function gameLoop() {
-        updateAI(game.paddleLeft, true);
-        updateAI(game.paddleRight, false);
-        updateBall();
-        draw();
-        requestAnimationFrame(gameLoop);
-      }
-
-      // ============================================
-      // START
-      // ============================================
-      window.addEventListener("load", () => {
-        updateScoreboard();
-        gameLoop();
-      });
-
-      // Scale to fit screen while maintaining aspect ratio
-      function scaleToFit() {
-        const container = document.getElementById("gameContainer");
+      // Scale to fit window while maintaining aspect ratio
+      function scaleScreen() {
         const windowWidth = window.innerWidth;
         const windowHeight = window.innerHeight;
-        const gameRatio = CONFIG.CANVAS_WIDTH / CONFIG.CANVAS_HEIGHT;
         const windowRatio = windowWidth / windowHeight;
 
         let scale;
-        if (windowRatio > gameRatio) {
-          scale = windowHeight / CONFIG.CANVAS_HEIGHT;
+        if (windowRatio > ASPECT_RATIO) {
+          scale = windowHeight / TOTAL_HEIGHT;
         } else {
-          scale = windowWidth / CONFIG.CANVAS_WIDTH;
+          scale = windowWidth / TOTAL_WIDTH;
         }
 
-        container.style.transform = `scale(${scale})`;
-        container.style.transformOrigin = "center center";
+        mainScreen.style.width = TOTAL_WIDTH * scale + "px";
+        mainScreen.style.height = TOTAL_HEIGHT * scale + "px";
       }
 
-      window.addEventListener("resize", scaleToFit);
-      scaleToFit();
+      // Auto fullscreen
+      function enterFullscreen() {
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) {
+          elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) {
+          elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) {
+          elem.msRequestFullscreen();
+        }
+      }
+
+      // Initialize
+      window.addEventListener("load", () => {
+        loadGame();
+        setTimeout(enterFullscreen, 100);
+      });
+
+      window.addEventListener("resize", scaleScreen);
+      document.addEventListener("fullscreenchange", scaleScreen);
+
+      // Click anywhere for fullscreen
+      let firstClick = true;
+      document.addEventListener("click", () => {
+        if (firstClick && !document.fullscreenElement) {
+          enterFullscreen();
+          firstClick = false;
+        }
+      });
     </script>
   </body>
 </html>
